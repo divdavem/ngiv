@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@angular/common": "^4.4.3",
+    "@angular/core": "^4.4.3",
+    "typescript": "^2.5.3"
+  },
+  "name": "iv",
+  "version": "1.0.0",
+  "description": "iv experimint",
+  "main": "index.js",
+  "license": "MIT"
+}
