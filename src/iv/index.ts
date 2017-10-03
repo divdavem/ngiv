@@ -1,19 +1,22 @@
-export {Template, IvBlock, IvGroup} from './interfaces';
+export {Template, IvGroup, IvContainer} from './interfaces';
 
 export {
   textCreate as tc,
   
   elementCreate as ec,
   elementProperty as ep,
+  elementAttribute as ea,
 
-  anchorCreate as ac,
-  anchorRefresh as ar,
+  groupCreate as gc,
+  groupRefresh as gr,
 
   componentCreate as cc,
   componentRefresh as cr,
   componentInput as ci,
+  componentInputWithOnChanges as cI,
   
-  directiveInputWithOnChanges as dI,
+  directiveCreate as dc,
   directiveInput as di,
-
+  directiveInputWithOnChanges as dI,
+  
 } from './instructions';

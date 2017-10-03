@@ -1,18 +1,23 @@
 import { Injector, Type } from '@angular/core';
-import { IvNodeKind, IvGroup, IvText, IvElement, IvBlock, IvAnchor, IvNode, Template, Renderer3, RElement, RText, RNode } from './interfaces';
+import { IvNodeKind, IvContainer, IvText, IvElement, IvGroup, IvNode, Template, Renderer3, RElement, RText, RNode } from './interfaces';
 
-
+/**
+ * This property gets set before entering a template.
+ */
 let creationMode: boolean = true;
+
+/**
+ * This property gets set before entering a template.
+ */
 let renderer: Renderer3 = document;
 
-function createNode(kind: IvNodeKind.Text, parent: IvGroup | null, native: RNode | null): IvText;
-function createNode(kind: IvNodeKind.Element, parent: IvGroup | null, native: RNode | null): IvElement;
-function createNode(kind: IvNodeKind.Block, parent: IvGroup | null, native: RNode | null): IvBlock;
-function createNode(kind: IvNodeKind.Anchor, parent: IvGroup | null, native: RNode | null): IvAnchor;
+function createNode(kind: IvNodeKind.Text, parent: IvContainer | null, native: RText): IvText;
+function createNode(kind: IvNodeKind.Element, parent: IvContainer | null, native: RElement): IvElement;
+function createNode(kind: IvNodeKind.Group, parent: IvContainer | null, native: RElement): IvGroup;
 function createNode(
-  kind: IvNodeKind.Text&IvNodeKind.Element&IvNodeKind.Block&IvNodeKind.Anchor, 
-  parent: IvGroup | null, 
-  native: RText | RElement): IvElement&IvText&IvAnchor&IvBlock 
+  kind: IvNodeKind.Text & IvNodeKind.Element & IvNodeKind.Group & IvNodeKind.Group, 
+  parent: IvContainer | null, 
+  native: RText | RElement): IvElement & IvText & IvGroup & IvGroup 
 {
   return {
     kind: kind,
@@ -27,9 +32,49 @@ function createNode(
 }
 
 /**
+ * CreateElement
+ */
+export function elementCreate(parent: IvContainer, index: number, name: string, 
+                              attrs?: { [key: string]: any } | false | 0, 
+                              listeners?: {[key: string]: any } | false): IvElement {
+  let node: IvElement;
+  if (creationMode) {
+    node = createNode(IvNodeKind.Element, parent, renderer.createElement(name));
+    parent.children.push(node);
+    parent.native!.appendChild(node.native!);
+  } else {
+    node = parent.children[index] as IvElement;
+  }
+  if (attrs) {
+    for (var key in attrs) {
+      if (attrs.hasOwnProperty(key)) {
+        node!.native!.setAttribute(key, attrs[key]);
+      }
+    }
+  }
+  return node;
+}
+
+/**
+ * SetProperty
+ */
+export function elementProperty(node: IvContainer, attrName: string, value: any): boolean {
+  return false;
+}
+
+export function elementAttribute(node: IvContainer, attrName: string, value: any): boolean {
+  return false;
+}
+
+
+
+
+
+
+/**
  * Create Component
  */
-export function textCreate(parent: IvGroup, index: number, value: any): void {
+export function textCreate(parent: IvContainer, index: number, value: any): void {
   let node: IvText;
   if (creationMode) {
     node = createNode(IvNodeKind.Text, parent, renderer.createTextNode(value));
@@ -43,13 +88,13 @@ export function textCreate(parent: IvGroup, index: number, value: any): void {
   }
 }
 
-function createInstance(node: IvGroup, type: any, diDeps: any[]) {
+function createInstance(node: IvContainer, type: any, diDeps: any[]) {
 }
 
 /**
  * Create Component
  */
-export function componentCreate(parent: IvGroup, index: number, element: string,
+export function componentCreate(parent: IvContainer, index: number, element: string,
   componentType: Type<any>, diDeps: any[]): IvElement {
   let node: IvElement;
   if (creationMode) {
@@ -76,50 +121,6 @@ export function componentRefresh(node: IvElement, template: Template<any>): void
   template(node, node.component, creationMode);
 }
 
-
-/**
- * CreateElement
- */
-export function elementCreate(parent: IvGroup, index: number, name: string, attrs?: { [key: string]: any } | false): IvElement {
-  let node: IvElement;
-  if (creationMode) {
-    node = createNode(IvNodeKind.Element, parent, renderer.createElement(name));
-    parent.children.push(node);
-    parent.native!.appendChild(node.native!);
-  } else {
-    node = parent.children[index] as IvElement;
-  }
-  if (attrs) {
-    for (var key in attrs) {
-      if (attrs.hasOwnProperty(key)) {
-        node!.native!.setAttribute(key, attrs[key]);
-      }
-    }
-  }
-  return node;
-}
-
-/**
- * SetProperty
- */
-export function elementProperty(node: IvGroup, attrName: string, value: any): boolean {
-  return false;
-}
-
-/**
- * SetDirectiveInputWithNgForChanges
- */
-export function directiveInputWithOnChanges(node: IvGroup, directiveIndex: number, attrName: string, value: any): boolean {
-  return false;
-}
-
-export function directiveInput(node: IvGroup, directiveIndex: number, attrName: string, value: any): boolean {
-  return false;
-}
-
-/**
- * SetComponentInput
- */
 export function componentInput(node: IvElement, attrIndex: number, value: any): boolean {
   let hasChanged = true;
   if (creationMode) {
@@ -130,18 +131,38 @@ export function componentInput(node: IvElement, attrIndex: number, value: any): 
   return hasChanged;
 }
 
+export function componentInputWithOnChanges(node: IvElement, attrIndex: string, value: any): boolean {
+  return false;
+}
+
+
+export function directiveCreate<T>(node: IvContainer, directiveIndex: number, directiveType: Type<T>, diDeps: any[]): T {
+  return null!;
+}
+
+/**
+ * SetDirectiveInputWithNgForChanges
+ */
+export function directiveInputWithOnChanges(node: IvContainer, directiveIndex: number, attrName: string, value: any): boolean {
+  return false;
+}
+
+export function directiveInput(node: IvContainer, directiveIndex: number, attrName: string, value: any): boolean {
+  return false;
+}
+
 
 /**
  * CreateAnchor
  */
-export function anchorCreate(node: IvGroup, id: number, template: Template<any>): IvAnchor {
+export function groupCreate(node: IvContainer, id: number, template: Template<any>): IvGroup {
   return null!;
 }
 
 /**
  * RefreshComponent
  */
-export function anchorRefresh(node: IvGroup): void {
+export function groupRefresh(node: IvContainer): void {
 }
 
 export function isSame(a: any, b: any): boolean {

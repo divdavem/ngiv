@@ -29,32 +29,26 @@ var element: RElement = document.createElement('div');
 var text: RText = document.createTextNode('text');
 
 export interface Template<T> {
-  (hostGroup: IvGroup, ctx: T, cm: boolean): void;
+  (hostGroup: IvContainer, ctx: T, cm: boolean): void;
 }
 
 export const enum IvNodeKind {
-  Component = "C",
-  Block = "B",
   Element = "E",
-  Text = "D",
-  Anchor = "A"
+  Text = "T",
+  Group = "G"
 }
 
 export interface IvNode {
   readonly kind: IvNodeKind;
-  readonly parent: IvGroup | null;
+  readonly parent: IvContainer | null;
 }
 
-export interface IvGroup extends IvNode {
+export interface IvContainer extends IvNode {
   children: IvNode[];
   readonly native: RElement;
 }
 
-export interface IvBlock extends IvGroup {
-  kind: IvNodeKind.Block;
-}
-
-export interface IvElement extends IvGroup {
+export interface IvElement extends IvContainer {
   injector: Injector | null;
   component: any;
   directives: any[] | null;
@@ -62,8 +56,8 @@ export interface IvElement extends IvGroup {
   value: any;
 }
 
-export interface IvAnchor extends IvGroup {
-  kind: IvNodeKind.Anchor;
+export interface IvGroup extends IvContainer {
+  kind: IvNodeKind.Group;
 }
 
 export interface IvText extends IvNode {
