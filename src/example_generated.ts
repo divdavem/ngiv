@@ -9,15 +9,14 @@ const NgForOfDeps = [ViewContainerRef, TemplateRef, IterableDiffers];
 
 function MyAppTemplate(myApp:MyApp, cm: boolean, temp: any) {
   ec('todo'); // <todo>
-  let todo = cc(TodoComponent, TodoComponentDeps);
-  ci(0, temp = myApp.list) && (todo.data = temp);
-  cr(TodoTemplate);
-  ee(); // </todo>;
+    let todo = cc(TodoComponent, TodoComponentDeps);
+    ci(0, temp = myApp.list) && (todo.data = temp);
+  ee(TodoTemplate); // </todo>;
 }
 
 function TodoTemplate(todo:TodoComponent, cm: boolean, temp: any) {
   ec('ul', cm && {'class': 'list'}); // <ul class="list">
-  ep('title', todo.myTitle);
+  ep(0, 'title', todo.myTitle);
   gc();
   let ngFor = dc(0, NgForOf, NgForOfDeps) as NgForOf<any[]>;
   di(0, 0, temp = todo.data, 'ngForOf') && (ngFor.ngForOf = temp as typeof todo.data);

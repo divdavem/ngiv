@@ -18,7 +18,7 @@ let creationMode: boolean = true;
 /**
  * This property gets set before entering a template.
  */
-let renderer: Renderer3 = document;
+let renderer_: Renderer3;
 
 /**
  * Current location in the ivNode tree.
@@ -37,7 +37,7 @@ let inCursorNode: boolean = false;
 /**
  * Patch the Node so that it complies with our Renderer.
  */
-Node && (Node.prototype.setProperty = function (this: Node, name:string, value: any): void {
+typeof Node !== 'undefined' && (Node.prototype.setProperty = function (this: Node, name:string, value: any): void {
   (this as any)[name] = value;
 });
 
@@ -77,6 +77,27 @@ export function isSame(a: any, b: any): boolean {
   return a === b || typeof a === 'number' && typeof b === 'number' && isNaN(a) && isNaN(b);
 }
 
+//////////////////////////
+//// Render
+//////////////////////////
+function render<T>(host: IvElement, renderer: Renderer3, template: Template<T>, ctx: T) {
+  cursor = host;
+  inCursorNode = true;
+  renderer_ = renderer;
+  try {
+    template(ctx, !host.child);
+  } finally {
+    cursor = null!;
+    renderer_ = null!;
+  }
+}
+
+function createHostNode(element: RElement): IvElement {
+  inCursorNode = true;
+  cursor = null!;
+  return createNode(element, true);
+}
+
 
 //////////////////////////
 //// ELEMENT
@@ -96,7 +117,8 @@ export function elementCreate(name: string,
                               listeners?: {[key: string]: any } | false) {
   let node: IvElement;
   if (creationMode) {
-    node = createNode(renderer.createElement(name), false);
+    node = createNode(renderer_.createElement(name), false);
+    // TODO: move this to elementEnd!
     insertNativeNode(node);
     if (attrs) {
       for (var key in attrs) {
@@ -116,6 +138,8 @@ export function elementCreate(name: string,
  * 
  * @param node 
  */
+//TODO: I think we can get rid of this method, if we say that groups are
+// responsible for adding their own children.
 function insertNativeNode(node: IvElement|IvText) {
   let parentNode = node.parent;
 
@@ -147,7 +171,7 @@ function insertNativeNode(node: IvElement|IvText) {
  *        renaming as port of minification.
  * @param value Value to write. This value will go through stringification.
  */
-export function elementAttribute(attrName: string, value: any): void {
+export function elementAttribute(propIndex:number, attrName: string, value: any): void {
 }
 
 /**
@@ -158,13 +182,21 @@ export function elementAttribute(attrName: string, value: any): void {
  *        renaming as part of minification.
  * @param value New value to write.
  */
-export function elementProperty(propName: string, value: any): void {
+export function elementProperty(propIndex:number, propName: string, value: any): void {
 }
+
+export function elementClass(propIndex:number, className: string, value: any): void {
+}
+
+export function elementStyle(propIndex:number, styleName: string, value: any, suffix?: string): void {
+}
+
+
 
 /**
  * Mark the end of the element.
  */
-export function elementEnd() {
+export function elementEnd(template?: Template<any>) {
   if (inCursorNode) {
     // If we are in the cursor, than just mark that we are 
     // no longer in the cursor. (Effectively closing it.)
@@ -173,6 +205,19 @@ export function elementEnd() {
     // If we are already out of the cursor, than ending 
     // an element requires poping a level higher.
     cursor = cursor.parent!;
+  }
+
+  if (template) {
+    const node = cursor as IvElement;
+    const directiveState = node.component!;
+    const instance = directiveState.instance;
+    if (creationMode) {
+      // TODO: could we move this check into compile time?
+      instance.onInit && instance.onInit();
+    } else {
+      // TODO: call onChanges if exist. 
+    }
+    template(node.component, creationMode);  
   }
 }
 
@@ -193,7 +238,7 @@ export function elementEnd() {
  */
 export function textCreate(value: any) {
   if (creationMode) {
-    const node = createNode(renderer.createTextNode(value), true);
+    const node = createNode(renderer_.createTextNode(value), true);
     insertNativeNode(node);
   }
 }
@@ -231,19 +276,6 @@ export function componentCreate<T>(componentType: Type<T>, diDeps: any[]): T {
     directiveState = node.component as DirectiveState<T>;
   }
   return directiveState.instance;
-}
-
-export function componentRefresh(template: Template<any>): void {
-  const node = cursor as IvElement;
-  const directiveState = node.component!;
-  const instance = directiveState.instance;
-  if (creationMode) {
-    // TODO: could we move this check into compile time?
-    instance.onInit && instance.onInit();
-  } else {
-    // TODO: call onChanges if exist. 
-  }
-  template(node.component, creationMode);
 }
 
 export function componentInput(inputIndex: number, value: any, onChangesName?: string): boolean {

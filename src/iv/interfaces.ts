@@ -53,7 +53,7 @@ export interface IvElement extends IvGroup {
   /**
    * Current values of the native Element properties used for CD.
    */
-  value: {[key:string]: any}[];
+  value: [];
 
   /**
    * A native Element representing the Element

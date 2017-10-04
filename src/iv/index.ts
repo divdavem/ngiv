@@ -15,13 +15,14 @@ export {
   elementCreate as ec,
   elementProperty as ep,
   elementAttribute as ea,
+  elementClass as eC,
+  elementStyle as es,
   elementEnd as ee,
 
   groupCreate as gc,
   groupEnd as ge,
 
   componentCreate as cc,
-  componentRefresh as cr,
   componentInput as ci,
   
   directiveCreate as dc,
