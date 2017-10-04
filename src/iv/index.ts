@@ -27,5 +27,7 @@ export {
   
   directiveCreate as dc,
   directiveInput as di,
-  
+
+  render,
+  createHostNode
 } from './instructions';

@@ -19,33 +19,34 @@ export type Template<T> = (ctx: T, creationMode: boolean, ignore?: any) => void;
  */
 export interface IvNode {
   /**
-   * Next sibling node.
-   */
-  next: IvNode|null;
-
-  /**
    * Parent container node.
    */
-  parent: IvGroup|null;
+  readonly parent: IvNode|null;
 
   /**
    * A native Node.
    */
-  readonly native: RNode;
+  readonly native: RNode | null;
   
-}
-
-/**
- * Abstract node which contains other nodes. 
- */
-export interface IvGroup extends IvNode {
+  /**
+   * Next sibling node.
+   */
+  next: IvNode|null;
+  
   /**
    * List of child IvNodes
    */
   child: IvNode|null;
 }
 
-export interface IvElement extends IvGroup {
+/**
+ * Abstract node which contains other nodes. 
+ */
+export interface IvGroup extends IvNode {
+  readonly native:null;
+}
+
+export interface IvElement extends IvNode {
   injector: Injector | null;
   component: DirectiveState<any>|null;
   directives: DirectiveState<any>[] | null;
@@ -53,7 +54,7 @@ export interface IvElement extends IvGroup {
   /**
    * Current values of the native Element properties used for CD.
    */
-  value: [];
+  value: any[];
 
   /**
    * A native Element representing the Element
@@ -62,6 +63,7 @@ export interface IvElement extends IvGroup {
 }
 
 export interface IvText extends IvNode {
+  child: null;
   /**
    * Current value of the text node used for CD.
    */

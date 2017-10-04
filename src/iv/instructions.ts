@@ -18,7 +18,7 @@ let creationMode: boolean = true;
 /**
  * This property gets set before entering a template.
  */
-let renderer_: Renderer3;
+let renderer: Renderer3;
 
 /**
  * Current location in the ivNode tree.
@@ -26,13 +26,28 @@ let renderer_: Renderer3;
 let cursor: IvNode;
 
 /**
- * Flags whether the next element will be created inside the current 
- * cursor or after the current cursor.
+ * `cursor` points to the current element. However when a new element is created
+ * the first element is differently than the next element. First one has parent
+ * point to it the next one has previous sibling point to it.
  * 
- * - true: Create a node inside the `cursor`.
- * - false: Create a node as a sibling of the `cursor`. 
+ *       #textD           #textC
+ *         ^                ^
+ *         |                |
+ *      <span> -> #textA -> <b> -> #textB
+ *         ^
+ *         |
+ *       <div>
+ * 
+ * Imagine cursor points to `div`, then `cursorIsParent` is true since insertion
+ * of `span` happens as a pointer from `div` to `span`. Where as insertion of 
+ * `#textA` happens as a pointer from `span` to `#textA`. We use `cursorIsParent`
+ * to denote if the `cursor` is point to parent or to previous node.
+ * 
+ * 
+ * - true: `cursor` is pointing to the parent node.
+ * - false: `cursor` is pointing to previous sibling node.
  */
-let inCursorNode: boolean = false;
+let cursorIsParent: boolean = false;
 
 /**
  * Patch the Node so that it complies with our Renderer.
@@ -45,12 +60,14 @@ typeof Node !== 'undefined' && (Node.prototype.setProperty = function (this: Nod
  * A Common way of creating the IvNode to make sure that all of them have same shape to
  * keep the execution code monomorphic and fast.
  */
-function createNode(native: RText | RElement | null, selfClosing: boolean):
+function createNode(native: RText, isTextNode: true): IvText
+function createNode(native: RElement|null, isTextNode: false): IvElement
+function createNode(native: RText | RElement | null, isTextNode: boolean):
               IvElement & IvText
 {
   const node: IvElement & IvText = {
     native: native as any,
-    parent: inCursorNode ? cursor as IvGroup : cursor.parent,
+    parent: cursorIsParent ? cursor as IvGroup : cursor.parent,
     component: null,
     directives: null,
     injector: null,
@@ -58,15 +75,15 @@ function createNode(native: RText | RElement | null, selfClosing: boolean):
     next: null,
     child: null
   };
-  if (inCursorNode) {
+  if (cursorIsParent) {
     // New node is created as a child of the current one.
-    (cursor as IvGroup).child = node;
+    cursor && ((cursor as IvGroup).child = node);
   } else {
     // New node is a next sibling of the current node.
     cursor.next = node;
   }
   // If we are self closing (ie TextNode), then inCursorNode is false.
-  inCursorNode = !selfClosing;
+  cursorIsParent = !isTextNode;
   return cursor = node;
 }
 
@@ -77,25 +94,32 @@ export function isSame(a: any, b: any): boolean {
   return a === b || typeof a === 'number' && typeof b === 'number' && isNaN(a) && isNaN(b);
 }
 
+export function stringify(value: any): string {
+  if (typeof value == 'string') return value;
+  if (value === undefined || value === null)  return '';
+  return '' + value;
+}
+
 //////////////////////////
 //// Render
 //////////////////////////
-function render<T>(host: IvElement, renderer: Renderer3, template: Template<T>, ctx: T) {
+export function render<T>(host: IvElement, tempRenderer: Renderer3, template: Template<T>, ctx: T) {
   cursor = host;
-  inCursorNode = true;
-  renderer_ = renderer;
+  cursorIsParent = true;
+  renderer = tempRenderer;
   try {
     template(ctx, !host.child);
+    elementEnd();
   } finally {
     cursor = null!;
-    renderer_ = null!;
+    renderer = null!;
   }
 }
 
-function createHostNode(element: RElement): IvElement {
-  inCursorNode = true;
+export function createHostNode(element: RElement): IvElement {
+  cursorIsParent = true;
   cursor = null!;
-  return createNode(element, true);
+  return createNode(element, false);
 }
 
 
@@ -117,9 +141,7 @@ export function elementCreate(name: string,
                               listeners?: {[key: string]: any } | false) {
   let node: IvElement;
   if (creationMode) {
-    node = createNode(renderer_.createElement(name), false);
-    // TODO: move this to elementEnd!
-    insertNativeNode(node);
+    node = createNode(renderer.createElement(name), false);
     if (attrs) {
       for (var key in attrs) {
         if (attrs.hasOwnProperty(key)) {
@@ -127,41 +149,60 @@ export function elementCreate(name: string,
         }
       }
     }
+    // TODO: add code for setting up listeners.
+  } else {
+    cursor = cursorIsParent ? cursor.child! : cursor.next!;
+    cursorIsParent = true;
   }
 }
 
 /**
- * Inserting a node requires that we find parent node and next sibling to 
- * insert in front of. This is complicated by the fact that parent node
- * may be a IvGroup which means that it is not in DOM. We have to find the 
- * parent as well as next sibling (if any);
- * 
- * @param node 
+ * Mark the end of the element.
  */
-//TODO: I think we can get rid of this method, if we say that groups are
-// responsible for adding their own children.
-function insertNativeNode(node: IvElement|IvText) {
-  let parentNode = node.parent;
-
-  // Keep looking for parent node until you find one which has a native
-  // element attached to it.
-  while (parentNode && !parentNode.native) {
-    parentNode = parentNode.parent;
-  }
-
-  // Now find the next node to insert in front of.
-  let refNode: IvNode|null = null;
-  let cursor = node.next || node.parent!.next;
-  while (cursor && cursor !== parentNode) {
-    if (cursor.native) {
-      refNode = cursor;
-      break;
+export function elementEnd(template?: Template<any>) {
+  if (template) {
+    // we don't add child elements to parent since components can reproject.
+    const node = cursor as IvElement;
+    const instance = node.component!.instance;
+    if (creationMode) {
+      // TODO: could we move this check into compile time?
+      instance.onInit && instance.onInit();
+    } else {
+      // TODO: call onChanges if exist. 
     }
-    cursor = (cursor as IvElement).child || cursor.next || cursor.parent!.next
+    template(instance, creationMode);  
+  } 
+
+  if (cursorIsParent) {
+    // If we are in the cursor, than just mark that we are 
+    // no longer in the cursor. (Effectively closing it.)
+    cursorIsParent = false;
+  } else {
+    // If we are already out of the cursor, than ending 
+    // an element requires poping a level higher.
+    cursor = cursor.parent!;
   }
 
-  parentNode && parentNode.native.insertBefore(node.native, refNode && refNode!.native);
+  if (creationMode) {
+    // Because we don't have a component, we need to add the child elements
+    const selfNode = cursor as IvElement;
+    const selfNative = selfNode.native;
+    let child = selfNode.child;
+    // loop over all child nodes and add them to ourselves.
+    while(child) {
+      const childNative = child.native;
+      if (childNative) {
+        selfNative.insertBefore(child.native!, null);
+      } else {
+        // child is a group, which requires flattening before addition.
+        // TODO: add some code here.
+      }
+      child = child.next;
+    }
+  }
 }
+
+
 
 /**
  * Update an attribute on an Element.
@@ -193,35 +234,6 @@ export function elementStyle(propIndex:number, styleName: string, value: any, su
 
 
 
-/**
- * Mark the end of the element.
- */
-export function elementEnd(template?: Template<any>) {
-  if (inCursorNode) {
-    // If we are in the cursor, than just mark that we are 
-    // no longer in the cursor. (Effectively closing it.)
-    inCursorNode = false;
-  } else {
-    // If we are already out of the cursor, than ending 
-    // an element requires poping a level higher.
-    cursor = cursor.parent!;
-  }
-
-  if (template) {
-    const node = cursor as IvElement;
-    const directiveState = node.component!;
-    const instance = directiveState.instance;
-    if (creationMode) {
-      // TODO: could we move this check into compile time?
-      instance.onInit && instance.onInit();
-    } else {
-      // TODO: call onChanges if exist. 
-    }
-    template(node.component, creationMode);  
-  }
-}
-
-
 
 //////////////////////////
 //// TEXT
@@ -238,8 +250,7 @@ export function elementEnd(template?: Template<any>) {
  */
 export function textCreate(value: any) {
   if (creationMode) {
-    const node = createNode(renderer_.createTextNode(value), true);
-    insertNativeNode(node);
+    createNode(renderer.createTextNode(stringify(value)), true);
   }
 }
 
@@ -303,7 +314,7 @@ function checkDirectiveInput<T>(directiveState: DirectiveState<T>, attrIndex: nu
 //// Directive
 //////////////////////////
 
-export function directiveCreate<T>(directiveIndex: number, directiveType: Type<T>, diDeps: any[]): T {
+export function directiveCreate<T>(directiveIndex: number, directiveType: Type<T>, diDeps: any[], structuralTemplate?: Template<any>): T {
   let node = cursor as IvElement;
   let directiveState: DirectiveState<T>;
   let directives = node.directives || (node.directives = []);
@@ -330,7 +341,16 @@ export function groupCreate(): void {
 }
 
 export function groupEnd(): void {
-  elementEnd();
+  // Groups don't insert native elements since they don't yet have a parent.
+  if (cursorIsParent) {
+    // If we are in the cursor, than just mark that we are 
+    // no longer in the cursor. (Effectively closing it.)
+    cursorIsParent = false;
+  } else {
+    // If we are already out of the cursor, than ending 
+    // an element requires poping a level higher.
+    cursor = cursor.parent!;
+  }
 }
 
 
