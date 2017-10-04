@@ -1,7 +1,7 @@
 import {MyApp, TodoComponent} from './example';
 import {ElementRef, Input, IterableDiffers, TemplateRef, ViewContainerRef, Injector, NgIterable} from '@angular/core';
 import {NgForOf, NgForOfContext} from '@angular/common';
-import {Template, IvGroup, IvContainer, cc, ec, cr, ep, gc, ci, dc, di, ge, tc, ee, tC} from './iv';
+import {Template, IvGroup, cc, ec, cr, ep, gc, ci, dc, di, ge, tc, ee, tC} from './iv';
 
 
 const TodoComponentDeps = [ElementRef];

@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
- export {Template, IvGroup, IvContainer} from './interfaces';
+ export {Template, IvGroup} from './interfaces';
 
 export {
   textCreate as tc,
