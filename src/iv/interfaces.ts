@@ -7,65 +7,48 @@
  */
 
  import { Injector, SimpleChanges } from '@angular/core';
- import { RElement, RText } from './renderer';
+ import { RElement, RText, RNode } from './renderer';
 
 /**
  * Definition of what a template rendering function should look like.
  */
-export interface Template<T> {
-  (hostGroup: IvContainer, ctx: T, creationMode: boolean): void;
-}
-
-/**
- * ivNodes can be of these types.
- */
-export const enum IvNodeKind {
-  /**
-   * This ivNode represents an actual Element.
-   */
-  Element = "E",
-
-  /**
-   * This ivNode represents an actual Text Node.
-   */
-  Text = "T",
-
-  /**
-   * This ivNode represents a virtual container for other Elements or Text nodes.
-   */
-  Group = "G"
-}
+export type Template<T> = (ctx: any, creationMode: boolean, ignore?: any) => void;
 
 /**
  * IvNode super type.
  */
 export interface IvNode {
   /**
-   * Discriminating kind for the IvNode
+   * Next sibling node.
    */
-  readonly kind: IvNodeKind;
+  next: IvNode|null;
+
+  /**
+   * Parent container node.
+   */
+  parent: IvGroup|null;
+
+  /**
+   * A native Node.
+   */
+  readonly native: RNode;
+  
 }
 
 /**
  * Abstract node which contains other nodes. 
  */
-export interface IvContainer extends IvNode {
+export interface IvGroup extends IvNode {
   /**
    * List of child IvNodes
    */
-  children: IvNode[];
-
-  /**
-   * Parent container node.
-   */
-  parent: IvContainer|null;
+  child: IvNode|null;
 }
 
-export interface IvElement extends IvContainer {
-  kind: IvNodeKind.Element;
+export interface IvElement extends IvGroup {
   injector: Injector | null;
-  component: DirectiveState|null;
-  directives: DirectiveState[] | null;
+  component: DirectiveState<any>|null;
+  directives: DirectiveState<any>[] | null;
 
   /**
    * Current values of the native Element properties used for CD.
@@ -78,12 +61,7 @@ export interface IvElement extends IvContainer {
   readonly native: RElement;
 }
 
-export interface IvGroup extends IvContainer {
-  kind: IvNodeKind.Group;
-}
-
 export interface IvText extends IvNode {
-  kind: IvNodeKind.Text;
   /**
    * Current value of the text node used for CD.
    */
@@ -97,11 +75,11 @@ export interface IvText extends IvNode {
 /**
  * Information which we need to keep about directive (or Component)
  */
-export interface DirectiveState {
+export interface DirectiveState<T> {
   /**
    * Instance of Directive
    */
-  instance: {},
+  instance: T,
   /**
    * Current values of the directive inputs used for CD.
    */

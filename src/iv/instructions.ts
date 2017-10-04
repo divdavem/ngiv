@@ -6,8 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import { Injector, Type } from '@angular/core';
-import { IvNodeKind, IvContainer, IvText, IvElement, IvGroup, IvNode, Template } from './interfaces';
+import { Injector, Type, SimpleChanges } from '@angular/core';
+import { IvText, IvElement, IvGroup, IvNode, Template, DirectiveState} from './interfaces';
 import { Renderer3, RElement, RText, RNode } from './renderer';
 
 /**
@@ -21,6 +21,20 @@ let creationMode: boolean = true;
 let renderer: Renderer3 = document;
 
 /**
+ * Current location in the ivNode tree.
+ */
+let cursor: IvNode;
+
+/**
+ * Flags whether the next element will be created inside the current 
+ * cursor or after the current cursor.
+ * 
+ * - true: Create a node inside the `cursor`.
+ * - false: Create a node as a sibling of the `cursor`. 
+ */
+let inCursorNode: boolean = false;
+
+/**
  * Patch the Node so that it complies with our Renderer.
  */
 Node && (Node.prototype.setProperty = function (this: Node, name:string, value: any): void {
@@ -31,24 +45,29 @@ Node && (Node.prototype.setProperty = function (this: Node, name:string, value: 
  * A Common way of creating the IvNode to make sure that all of them have same shape to
  * keep the execution code monomorphic and fast.
  */
-function createNode(kind: IvNodeKind.Text, parent: IvContainer | null, native: RText): IvText;
-function createNode(kind: IvNodeKind.Element, parent: IvContainer | null, native: RElement): IvElement;
-function createNode(kind: IvNodeKind.Group, parent: IvContainer | null, native: RElement): IvGroup;
-function createNode(
-  kind: IvNodeKind.Text & IvNodeKind.Element & IvNodeKind.Group & IvNodeKind.Group, 
-  parent: IvContainer | null,
-  native: RText | RElement): IvElement & IvText & IvGroup & IvGroup 
+function createNode(native: RText | RElement | null, selfClosing: boolean):
+              IvElement & IvText
 {
-  return {
-    kind: kind,
+  const node: IvElement & IvText = {
     native: native as any,
-    parent: parent,
+    parent: inCursorNode ? cursor as IvGroup : cursor.parent,
     component: null,
     directives: null,
     injector: null,
     value: null as any,
-    children: (kind == IvNodeKind.Text ? null : []) as any
+    next: null,
+    child: null
   };
+  if (inCursorNode) {
+    // New node is created as a child of the current one.
+    (cursor as IvGroup).child = node;
+  } else {
+    // New node is a next sibling of the current node.
+    cursor.next = node;
+  }
+  // If we are self closing (ie TextNode), then inCursorNode is false.
+  inCursorNode = !selfClosing;
+  return cursor = node;
 }
 
 /**
@@ -72,25 +91,50 @@ export function isSame(a: any, b: any): boolean {
  * @param attrs Statically bound set of attributes to be written into the DOM element.
  * @param listeners A set of listener which should be registered for the DOM element.
  */
-export function elementCreate(parent: IvContainer, index: number, name: string, 
+export function elementCreate(name: string, 
                               attrs?: { [key: string]: any } | false | 0, 
-                              listeners?: {[key: string]: any } | false): IvElement {
+                              listeners?: {[key: string]: any } | false) {
   let node: IvElement;
+  const parent = cursor;
   if (creationMode) {
-    node = createNode(IvNodeKind.Element, parent, renderer.createElement(name));
-    parent.children.push(node);
-    parent.native!.appendChild(node.native!);
-  } else {
-    node = parent.children[index] as IvElement;
-  }
-  if (attrs) {
-    for (var key in attrs) {
-      if (attrs.hasOwnProperty(key)) {
-        node!.native!.setAttribute(key, attrs[key]);
+    node = createNode(renderer.createElement(name), false);
+    insertNativeNode(node);
+    if (attrs) {
+      for (var key in attrs) {
+        if (attrs.hasOwnProperty(key)) {
+          node!.native!.setAttribute(key, attrs[key]);
+        }
       }
     }
   }
-  return node;
+}
+
+/**
+ *   <div>
+ *     <>
+ *        <>*</>
+ *        <b></b>
+ *     </>
+ *   </div>
+ * 
+ * @param node 
+ */
+function insertNativeNode(node: IvElement|IvText) {
+  let cursor: IvNode|null = node.next || node.parent;
+  let parentNode: IvElement|null = null;
+  let refNode: IvElement|IvText|null = null;
+  while (cursor) {
+    if (cursor.native) {
+      if (refNode) {
+        parentNode = cursor as IvElement;
+      } else {
+        refNode = cursor as IvElement;
+      }
+    }
+    cursor = refNode ? cursor.parent : cursor.next || cursor.parent;
+  }
+
+  parentNode && parentNode.native.insertBefore(node.native, refNode!.native);
 }
 
 /**
@@ -101,7 +145,7 @@ export function elementCreate(parent: IvContainer, index: number, name: string,
  *        renaming as port of minification.
  * @param value Value to write. This value will go through stringification.
  */
-export function elementAttribute(parent: IvContainer, attrName: string, value: any): void {
+export function elementAttribute(attrName: string, value: any): void {
 }
 
 /**
@@ -112,9 +156,23 @@ export function elementAttribute(parent: IvContainer, attrName: string, value: a
  *        renaming as port of minification.
  * @param value New value to write.
  */
-export function elementProperty(parent: IvContainer, propName: string, value: any): void {
+export function elementProperty(propName: string, value: any): void {
 }
 
+/**
+ * Mark the end of the element.
+ */
+export function elementEnd() {
+  if (inCursorNode) {
+    // If we are in the cursor, than just mark that we are 
+    // no longer in the cursor. (Effectively closing it.)
+    inCursorNode = false;
+  } else {
+    // If we are already out of the cursor, than ending 
+    // an element requires poping a level higher.
+    cursor = cursor.parent!;
+  }
+}
 
 
 
@@ -131,16 +189,11 @@ export function elementProperty(parent: IvContainer, propName: string, value: an
  *        be stored in creation mode or retrieved from update mode.
  * @param value Value to write. This value will go through stringification.
  */
-export function textCreate(parent: IvContainer, index: number, value: any): IvText {
-  let node: IvText;
+export function textCreate(value: any) {
   if (creationMode) {
-    node = createNode(IvNodeKind.Text, parent, renderer.createTextNode(value));
-    parent.children.push(node);
-    parent.native!.appendChild(node.native!);
-  } else {
-    node = parent.children[index] as IvText;
+    const node = createNode(renderer.createTextNode(value), true);
+    insertNativeNode(node);
   }
-  return node;
 }
 
 /**
@@ -151,9 +204,10 @@ export function textCreate(parent: IvContainer, index: number, value: any): IvTe
  *        be stored in creation mode or retrieved from update mode.
  * @param value Value to write. This value will go through stringification.
  */
-export function textCreateBound(parent: IvContainer, index: number, value: any): void {
-  let node = textCreate(parent, index, value);
+export function textCreateBound(value: any): void {
+  textCreate(value);
   if (!creationMode) {
+    const node = cursor as IvText;
     if (node.value !== value) {
       (node.native as Text).textContent = node.value = value;
     }
@@ -166,42 +220,49 @@ export function textCreateBound(parent: IvContainer, index: number, value: any):
 //////////////////////////
 
 
-export function componentCreate(parent: IvContainer, index: number, element: string,
-  componentType: Type<any>, diDeps: any[]): IvElement {
-  let node: IvElement;
+export function componentCreate<T>(componentType: Type<T>, diDeps: any[]): T {
+  let node = cursor as IvElement;
+  let directiveState: DirectiveState<T>;
   if (creationMode) {
-    node = createNode(IvNodeKind.Element, parent, renderer.createElement(element));
-    parent.children.push(node);
-    parent.native!.appendChild(node.native!);
-    createInstance(node, componentType, diDeps);
-    node.value = [];
+    node.component = directiveState = instantiateDirective(componentType, diDeps);
   } else {
-    node = parent.children[index] as IvElement;
+    directiveState = node.component as DirectiveState<T>;
   }
-  return node;
+  return directiveState.instance;
 }
 
-export function componentRefresh(node: IvElement, template: Template<any>): void {
+export function componentRefresh(template: Template<any>): void {
+  const node = cursor as IvElement;
+  const directiveState = node.component!;
+  const instance = directiveState.instance;
   if (creationMode) {
-    node.component.onInit && node.component.onInit();
+    // TODO: could we move this chec into compile time?
+    instance.onInit && instance.onInit();
   } else {
     // TODO: call onChanges if exist. 
   }
-  template(node, node.component, creationMode);
+  template(node.component, creationMode);
 }
 
-export function componentInput(node: IvElement, attrIndex: number, value: any): boolean {
+export function componentInput(inputIndex: number, value: any, onChangesName?: string): boolean {
+  return checkDirectiveInput((cursor as IvElement).component!, inputIndex, value, onChangesName);
+}
+
+function checkDirectiveInput<T>(directiveState: DirectiveState<T>, attrIndex: number, value: any, onChangesName?: string) {
+  const instance = directiveState.instance;
+  const inputs = directiveState.inputs || (directiveState.inputs = []);
   let hasChanged = true;
   if (creationMode) {
-    node.value[attrIndex] = value;
+    inputs[attrIndex] = value;
   } else {
-    (hasChanged = node.value[attrIndex] === value) && (node.value[attrIndex] = value);
+    const lastValue = inputs[attrIndex];
+    (hasChanged = isSame(lastValue, value)) && (inputs[attrIndex] = value);
+  }
+  if (hasChanged && onChangesName) {
+    const changes: SimpleChanges = directiveState.changes || (directiveState.changes = {});
+    changes[onChangesName] = value;
   }
   return hasChanged;
-}
-
-export function componentInputWithOnChanges(node: IvElement, attrIndex: string, value: any): boolean {
-  return false;
 }
 
 
@@ -209,16 +270,21 @@ export function componentInputWithOnChanges(node: IvElement, attrIndex: string, 
 //// Directive
 //////////////////////////
 
-export function directiveCreate<T>(node: IvContainer, directiveIndex: number, directiveType: Type<T>, diDeps: any[]): T {
-  return null!;
+export function directiveCreate<T>(directiveIndex: number, directiveType: Type<T>, diDeps: any[]): T {
+  let node = cursor as IvElement;
+  let directiveState: DirectiveState<T>;
+  let directives = node.directives || (node.directives = []);
+  if (creationMode) {
+    directives[directiveIndex] = directiveState = instantiateDirective(directiveType, diDeps);
+  } else {
+    directiveState = directives[directiveIndex] as DirectiveState<T>;
+  }
+  return directiveState.instance;
 }
 
-export function directiveInputWithOnChanges(node: IvContainer, directiveIndex: number, attrName: string, value: any): boolean {
-  return false;
-}
-
-export function directiveInput(node: IvContainer, directiveIndex: number, attrName: string, value: any): boolean {
-  return false;
+export function directiveInput(directiveIndex: number, inputIndex: number, value: any, onChangesName?: string): boolean {
+  const node = cursor as IvElement;
+  return checkDirectiveInput(node.directives![directiveIndex], inputIndex, value, onChangesName);
 }
 
 
@@ -227,11 +293,11 @@ export function directiveInput(node: IvContainer, directiveIndex: number, attrNa
 //////////////////////////
 
 
-export function groupCreate(node: IvContainer, id: number, template: Template<any>): IvGroup {
-  return null!;
+export function groupCreate(): void {
 }
 
-export function groupRefresh(node: IvContainer): void {
+export function groupEnd(): void {
+  elementEnd();
 }
 
 
@@ -239,6 +305,7 @@ export function groupRefresh(node: IvContainer): void {
 //// Injection
 //////////////////////////
 
-function createInstance(node: IvContainer, type: any, diDeps: any[]) {
+function instantiateDirective<T>(type: Type<T>, diDeps: any[]): DirectiveState<T> {
+  return null!;
 }
 

@@ -35,7 +35,6 @@ export interface Renderer3 {
  * Subset of API needed for appending elements and text nodes.
  */
 export interface RNode {
-  appendChild(newChild: RNode): void;  
   removeChild(oldChild: RNode): void;
   insertBefore(newChild: RNode, refChild: RNode | null): void;
 }

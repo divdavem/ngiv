@@ -15,17 +15,16 @@ export {
   elementCreate as ec,
   elementProperty as ep,
   elementAttribute as ea,
+  elementEnd as ee,
 
   groupCreate as gc,
-  groupRefresh as gr,
+  groupEnd as ge,
 
   componentCreate as cc,
   componentRefresh as cr,
   componentInput as ci,
-  componentInputWithOnChanges as cI,
   
   directiveCreate as dc,
   directiveInput as di,
-  directiveInputWithOnChanges as dI,
   
 } from './instructions';
