@@ -1,5 +1,5 @@
 import {createWindow} from 'domino';
-import {render, createHostNode, ec, ee, tc} from '../../src/iv';
+import {render, createHostNode, E, e, T} from '../../src/iv';
 
 describe('iv perf test', () => {
 
@@ -30,9 +30,9 @@ describe('iv perf test', () => {
   
         function Template() {
           for(var i = 0; i < count; i++ ) {
-            ec('div');
-              tc('-');
-            ee();
+            E('div');
+              T('-');
+            e();
           }
         }
   

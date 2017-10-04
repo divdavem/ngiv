@@ -1,5 +1,5 @@
 import {createWindow} from 'domino';
-import {render, createHostNode, ec, ee, tc} from '../../src/iv';
+import {render, createHostNode, E, e, T} from '../../src/iv';
 
 describe('iv integration test', () => {
 
@@ -13,9 +13,9 @@ describe('iv integration test', () => {
       expect(div.innerHTML).toEqual('<span title="Hello">Greetings</span>');
   
       function Template() {
-        ec('span', {title: 'Hello'});
-          tc('Greetings');
-        ee();
+        E('span', {title: 'Hello'});
+          T('Greetings');
+        e();
       }
     });
   });
