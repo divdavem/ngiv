@@ -2,8 +2,14 @@
   "dependencies": {
     "@angular/common": "^4.4.3",
     "@angular/core": "^4.4.3",
+    "@types/jasmine": "2.2.22-alpha",
+    "jasmine": "^2.8.0",
     "rxjs": "5.x",
     "typescript": "^2.5.3"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "test": "tsc && jasmine --config=test/jasmine.json"
   },
   "name": "iv",
   "version": "1.0.0",
