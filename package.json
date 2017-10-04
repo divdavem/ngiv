@@ -10,7 +10,8 @@
   },
   "scripts": {
     "clean": "rm -rf dist",
-    "test": "tsc && jasmine --config=test/jasmine.json"
+    "test": "tsc && jasmine --config=test/jasmine.test.json",
+    "perf": "tsc && jasmine --config=test/jasmine.perf.json"
   },
   "name": "iv",
   "version": "1.0.0",
