@@ -95,7 +95,6 @@ export function elementCreate(name: string,
                               attrs?: { [key: string]: any } | false | 0, 
                               listeners?: {[key: string]: any } | false) {
   let node: IvElement;
-  const parent = cursor;
   if (creationMode) {
     node = createNode(renderer.createElement(name), false);
     insertNativeNode(node);
@@ -126,8 +125,8 @@ function insertNativeNode(node: IvElement|IvText) {
     parentNode = parentNode.parent;
   }
 
-  // Now find the next node to insert infront off. 
-  let refNode: IvNode|null = null
+  // Now find the next node to insert in front of.
+  let refNode: IvNode|null = null;
   let cursor = node.next || node.parent!.next;
   while (cursor && cursor !== parentNode) {
     if (cursor.native) {
@@ -156,7 +155,7 @@ export function elementAttribute(attrName: string, value: any): void {
  * 
  * @param parent Parent IvNode. 
  * @param propName Name of property. Because it is going to DOM this is not subject to
- *        renaming as port of minification.
+ *        renaming as part of minification.
  * @param value New value to write.
  */
 export function elementProperty(propName: string, value: any): void {
@@ -239,7 +238,7 @@ export function componentRefresh(template: Template<any>): void {
   const directiveState = node.component!;
   const instance = directiveState.instance;
   if (creationMode) {
-    // TODO: could we move this chec into compile time?
+    // TODO: could we move this check into compile time?
     instance.onInit && instance.onInit();
   } else {
     // TODO: call onChanges if exist. 
@@ -252,7 +251,6 @@ export function componentInput(inputIndex: number, value: any, onChangesName?: s
 }
 
 function checkDirectiveInput<T>(directiveState: DirectiveState<T>, attrIndex: number, value: any, onChangesName?: string) {
-  const instance = directiveState.instance;
   const inputs = directiveState.inputs || (directiveState.inputs = []);
   let hasChanged = true;
   if (creationMode) {

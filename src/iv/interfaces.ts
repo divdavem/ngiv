@@ -12,7 +12,7 @@
 /**
  * Definition of what a template rendering function should look like.
  */
-export type Template<T> = (ctx: any, creationMode: boolean, ignore?: any) => void;
+export type Template<T> = (ctx: T, creationMode: boolean, ignore?: any) => void;
 
 /**
  * IvNode super type.
