@@ -1,59 +1,81 @@
-import { Injector } from '@angular/core';
+/**
+ * @license
+ * Copyright Google Inc. All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
 
-export interface Renderer3 {
-  createElement(tagName: string): RElement;
-  createElementNS(namespaceURI: string | null, qualifiedName: string): RElement;
-  createTextNode(data: string): Text;
-}
+ import { Injector, SimpleChanges } from '@angular/core';
+ import { RElement, RText } from './renderer';
 
-export interface RNode {
-  appendChild(newChild: RNode): void;  
-  removeChild(oldChild: RNode): void;
-  insertBefore(newChild: RNode, refChild: RNode | null): void;
-}
-
-export interface RElement extends RNode {
-  setAttribute(name: string, value: string): void;
-  setAttributeNS(namespaceURI: string, qualifiedName: string, value: string): void;
-  addEventListener(type: string, listener: EventListener, useCapture?: boolean): void;
-  removeEventListener(type: string, listener?: EventListener, options?: boolean): void;
-}
-
-export interface RText extends RNode {
-  textContent: string|null;
-}
-
-// Verify that DOM is a type of render
-var renderer: Renderer3 = document;
-var element: RElement = document.createElement('div');
-var text: RText = document.createTextNode('text');
-
+/**
+ * Definition of what a template rendering function should look like.
+ */
 export interface Template<T> {
-  (hostGroup: IvContainer, ctx: T, cm: boolean): void;
+  (hostGroup: IvContainer, ctx: T, creationMode: boolean): void;
 }
 
+/**
+ * ivNodes can be of these types.
+ */
 export const enum IvNodeKind {
+  /**
+   * This ivNode represents an actual Element.
+   */
   Element = "E",
+
+  /**
+   * This ivNode represents an actual Text Node.
+   */
   Text = "T",
+
+  /**
+   * This ivNode represents a virtual container for other Elements or Text nodes.
+   */
   Group = "G"
 }
 
+/**
+ * IvNode super type.
+ */
 export interface IvNode {
+  /**
+   * Discriminating kind for the IvNode
+   */
   readonly kind: IvNodeKind;
-  readonly parent: IvContainer | null;
 }
 
+/**
+ * Abstract node which contains other nodes. 
+ */
 export interface IvContainer extends IvNode {
+  /**
+   * List of child IvNodes
+   */
   children: IvNode[];
-  readonly native: RElement;
+
+  /**
+   * Parent container node.
+   */
+  parent: IvContainer|null;
 }
 
 export interface IvElement extends IvContainer {
-  injector: Injector | null;
-  component: any;
-  directives: any[] | null;
   kind: IvNodeKind.Element;
-  value: any;
+  injector: Injector | null;
+  component: DirectiveState|null;
+  directives: DirectiveState[] | null;
+
+  /**
+   * Current values of the native Element properties used for CD.
+   */
+  value: {[key:string]: any}[];
+
+  /**
+   * A native Element representing the Element
+   */
+  readonly native: RElement;
 }
 
 export interface IvGroup extends IvContainer {
@@ -62,6 +84,33 @@ export interface IvGroup extends IvContainer {
 
 export interface IvText extends IvNode {
   kind: IvNodeKind.Text;
-  readonly native: RText;
+  /**
+   * Current value of the text node used for CD.
+   */
   value: string;
+  /**
+   * A native Element representing the Element
+   */
+  readonly native: RText;
+}
+
+/**
+ * Information which we need to keep about directive (or Component)
+ */
+export interface DirectiveState {
+  /**
+   * Instance of Directive
+   */
+  instance: {},
+  /**
+   * Current values of the directive inputs used for CD.
+   */
+  inputs: any[],
+
+  /**
+   * If the directive implements `ngOnChanges` than this contains the 
+   * SimpleChanges object which will be delivered after CDing all of the
+   * inputs.
+   */
+  changes: SimpleChanges|null
 }

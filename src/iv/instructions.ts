@@ -1,5 +1,14 @@
+/**
+ * @license
+ * Copyright Google Inc. All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+
 import { Injector, Type } from '@angular/core';
-import { IvNodeKind, IvContainer, IvText, IvElement, IvGroup, IvNode, Template, Renderer3, RElement, RText, RNode } from './interfaces';
+import { IvNodeKind, IvContainer, IvText, IvElement, IvGroup, IvNode, Template } from './interfaces';
+import { Renderer3, RElement, RText, RNode } from './renderer';
 
 /**
  * This property gets set before entering a template.
@@ -11,18 +20,29 @@ let creationMode: boolean = true;
  */
 let renderer: Renderer3 = document;
 
+/**
+ * Patch the Node so that it complies with our Renderer.
+ */
+Node && (Node.prototype.setProperty = function (this: Node, name:string, value: any): void {
+  (this as any)[name] = value;
+});
+
+/**
+ * A Common way of creating the IvNode to make sure that all of them have same shape to
+ * keep the execution code monomorphic and fast.
+ */
 function createNode(kind: IvNodeKind.Text, parent: IvContainer | null, native: RText): IvText;
 function createNode(kind: IvNodeKind.Element, parent: IvContainer | null, native: RElement): IvElement;
 function createNode(kind: IvNodeKind.Group, parent: IvContainer | null, native: RElement): IvGroup;
 function createNode(
   kind: IvNodeKind.Text & IvNodeKind.Element & IvNodeKind.Group & IvNodeKind.Group, 
-  parent: IvContainer | null, 
+  parent: IvContainer | null,
   native: RText | RElement): IvElement & IvText & IvGroup & IvGroup 
 {
   return {
     kind: kind,
-    parent: parent,
     native: native as any,
+    parent: parent,
     component: null,
     directives: null,
     injector: null,
@@ -32,7 +52,25 @@ function createNode(
 }
 
 /**
- * CreateElement
+ * Must use this method for CD (instead of === ) since Infinity !== Infinity
+ */
+export function isSame(a: any, b: any): boolean {
+  return a === b || typeof a === 'number' && typeof b === 'number' && isNaN(a) && isNaN(b);
+}
+
+
+//////////////////////////
+//// ELEMENT
+//////////////////////////
+
+/**
+ * 
+ * @param parent IvNode
+ * @param index Location in the parent IvNode.children where the current node should 
+ *        be stored in creation mode or retrieved from update mode.
+ * @param name Name of the DOM Node.
+ * @param attrs Statically bound set of attributes to be written into the DOM element.
+ * @param listeners A set of listener which should be registered for the DOM element.
  */
 export function elementCreate(parent: IvContainer, index: number, name: string, 
                               attrs?: { [key: string]: any } | false | 0, 
@@ -56,25 +94,44 @@ export function elementCreate(parent: IvContainer, index: number, name: string,
 }
 
 /**
- * SetProperty
+ * Update an attribute on an Element.
+ * 
+ * @param parent Parent IvNode
+ * @param attrName Name of attribute. Because it is going to DOM this is not subject to
+ *        renaming as port of minification.
+ * @param value Value to write. This value will go through stringification.
  */
-export function elementProperty(node: IvContainer, attrName: string, value: any): boolean {
-  return false;
+export function elementAttribute(parent: IvContainer, attrName: string, value: any): void {
 }
 
-export function elementAttribute(node: IvContainer, attrName: string, value: any): boolean {
-  return false;
+/**
+ * Update a property on an Element.
+ * 
+ * @param parent Parent IvNode. 
+ * @param propName Name of property. Because it is going to DOM this is not subject to
+ *        renaming as port of minification.
+ * @param value New value to write.
+ */
+export function elementProperty(parent: IvContainer, propName: string, value: any): void {
 }
 
 
 
 
+//////////////////////////
+//// TEXT
+//////////////////////////
 
 
 /**
- * Create Component
+ * Create static text node
+ * 
+ * @param parent 
+ * @param index Location in the parent IvNode.children where the current node should 
+ *        be stored in creation mode or retrieved from update mode.
+ * @param value Value to write. This value will go through stringification.
  */
-export function textCreate(parent: IvContainer, index: number, value: any): void {
+export function textCreate(parent: IvContainer, index: number, value: any): IvText {
   let node: IvText;
   if (creationMode) {
     node = createNode(IvNodeKind.Text, parent, renderer.createTextNode(value));
@@ -82,18 +139,33 @@ export function textCreate(parent: IvContainer, index: number, value: any): void
     parent.native!.appendChild(node.native!);
   } else {
     node = parent.children[index] as IvText;
+  }
+  return node;
+}
+
+/**
+ * Create text node with binding
+ * 
+ * @param parent 
+ * @param index Location in the parent IvNode.children where the current node should 
+ *        be stored in creation mode or retrieved from update mode.
+ * @param value Value to write. This value will go through stringification.
+ */
+export function textCreateBound(parent: IvContainer, index: number, value: any): void {
+  let node = textCreate(parent, index, value);
+  if (!creationMode) {
     if (node.value !== value) {
       (node.native as Text).textContent = node.value = value;
     }
   }
 }
 
-function createInstance(node: IvContainer, type: any, diDeps: any[]) {
-}
+  
+//////////////////////////
+//// Component
+//////////////////////////
 
-/**
- * Create Component
- */
+
 export function componentCreate(parent: IvContainer, index: number, element: string,
   componentType: Type<any>, diDeps: any[]): IvElement {
   let node: IvElement;
@@ -109,9 +181,6 @@ export function componentCreate(parent: IvContainer, index: number, element: str
   return node;
 }
 
-/**
- * ComponentRefresh
- */
 export function componentRefresh(node: IvElement, template: Template<any>): void {
   if (creationMode) {
     node.component.onInit && node.component.onInit();
@@ -136,13 +205,14 @@ export function componentInputWithOnChanges(node: IvElement, attrIndex: string, 
 }
 
 
+//////////////////////////
+//// Directive
+//////////////////////////
+
 export function directiveCreate<T>(node: IvContainer, directiveIndex: number, directiveType: Type<T>, diDeps: any[]): T {
   return null!;
 }
 
-/**
- * SetDirectiveInputWithNgForChanges
- */
 export function directiveInputWithOnChanges(node: IvContainer, directiveIndex: number, attrName: string, value: any): boolean {
   return false;
 }
@@ -152,19 +222,23 @@ export function directiveInput(node: IvContainer, directiveIndex: number, attrNa
 }
 
 
-/**
- * CreateAnchor
- */
+//////////////////////////
+//// Group
+//////////////////////////
+
+
 export function groupCreate(node: IvContainer, id: number, template: Template<any>): IvGroup {
   return null!;
 }
 
-/**
- * RefreshComponent
- */
 export function groupRefresh(node: IvContainer): void {
 }
 
-export function isSame(a: any, b: any): boolean {
-  return a === b || typeof a === 'number' && typeof b === 'number' && isNaN(a) && isNaN(b);
+
+//////////////////////////
+//// Injection
+//////////////////////////
+
+function createInstance(node: IvContainer, type: any, diDeps: any[]) {
 }
+
