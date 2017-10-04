@@ -110,31 +110,34 @@ export function elementCreate(name: string,
 }
 
 /**
- *   <div>
- *     <>
- *        <>*</>
- *        <b></b>
- *     </>
- *   </div>
+ * Inserting a node requires that we find parent node and next sibling to 
+ * insert in front of. This is complicated by the fact that parent node
+ * may be a IvGroup which means that it is not in DOM. We have to find the 
+ * parent as well as next sibling (if any);
  * 
  * @param node 
  */
 function insertNativeNode(node: IvElement|IvText) {
-  let cursor: IvNode|null = node.next || node.parent;
-  let parentNode: IvElement|null = null;
-  let refNode: IvElement|IvText|null = null;
-  while (cursor) {
-    if (cursor.native) {
-      if (refNode) {
-        parentNode = cursor as IvElement;
-      } else {
-        refNode = cursor as IvElement;
-      }
-    }
-    cursor = refNode ? cursor.parent : cursor.next || cursor.parent;
+  let parentNode = node.parent;
+
+  // Keep looking for parent node until you find one which has a native
+  // element attached to it.
+  while (parentNode && !parentNode.native) {
+    parentNode = parentNode.parent;
   }
 
-  parentNode && parentNode.native.insertBefore(node.native, refNode!.native);
+  // Now find the next node to insert infront off. 
+  let refNode: IvNode|null = null
+  let cursor = node.next || node.parent!.next;
+  while (cursor && cursor !== parentNode) {
+    if (cursor.native) {
+      refNode = cursor;
+      break;
+    }
+    cursor = (cursor as IvElement).child || cursor.next || cursor.parent!.next
+  }
+
+  parentNode && parentNode.native.insertBefore(node.native, refNode && refNode!.native);
 }
 
 /**
