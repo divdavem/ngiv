@@ -6,10 +6,11 @@ describe('iv perf test', () => {
   var window = createWindow('', 'http://localhost');
   var document = window.document;
   const count = 100000;
+  const noOfIterations = 10;
   
   describe('render', () => {
-    for(var iteration = 0; iteration < 10; iteration++) {
-      it('${iteration}. create ${count} divs in DOM', () => {
+    for(var iteration = 0; iteration < noOfIterations; iteration++) {
+      it(`${iteration}. create ${count} divs in DOM`, () => {
         const start = new Date().getTime();
         const container = document.createElement('div');
         for(var i = 0; i < count; i++ ) {
@@ -18,15 +19,15 @@ describe('iv perf test', () => {
           container.appendChild(div);
         }
         const end = new Date().getTime();
-        log('${count} DIVs in DOM', (end - start)/count);
+        log(`${count} DIVs in DOM`, (end - start)/count);
       });
   
-      it('${iteration}. create ${count} divs in IV', () => {
+      it(`${iteration}. create ${count} divs in IV`, () => {
         const start = new Date().getTime();
         const container = document.createElement('div');
         render(createHostNode(container), document, Template, {});
         const end = new Date().getTime();
-        log('${count} DIVs in IV', (end - start)/count);
+        log(`${count} DIVs in IV`, (end - start)/count);
   
         function Template() {
           for(var i = 0; i < count; i++ ) {
