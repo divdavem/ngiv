@@ -1,5 +1,5 @@
 import {createWindow} from 'domino';
-import {render, createHostNode, E, e, T} from '../../src/iv';
+import {render, createHostNode, E, e, T, t} from '../../src/iv';
 
 describe('iv integration test', () => {
 
@@ -18,5 +18,23 @@ describe('iv integration test', () => {
         e();
       }
     });
+
+    it('should render and update basic "Hello, World" template', () => {
+      const div = window.document.createElement('div');
+      const host = createHostNode(div);
+
+      render(host, document, Template, 'World');
+      expect(div.innerHTML).toEqual('<h1>Hello, World!</h1>');
+
+      render(host, document, Template, 'New World');
+      expect(div.innerHTML).toEqual('<h1>Hello, New World!</h1>');
+
+      function Template(name: string) {
+        E('h1');
+          t(`Hello, ${name}!`);
+        e();
+      }
+    });
+
   });
 });

@@ -108,7 +108,7 @@ export function render<T>(host: IvElement, tempRenderer: Renderer3, template: Te
   cursorIsParent = true;
   renderer = tempRenderer;
   try {
-    template(ctx, !host.child);
+    template(ctx, creationMode = !host.child);
     elementEnd();
   } finally {
     cursor = null!;
