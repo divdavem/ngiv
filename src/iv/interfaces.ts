@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
- import { Injector, SimpleChanges } from '@angular/core';
+ import { Injector, SimpleChanges, Type, TemplateRef, ViewContainerRef, ElementRef } from '@angular/core';
  import { RElement, RText, RNode } from './renderer';
 
 /**
@@ -37,6 +37,10 @@ export interface IvNode {
    * List of child IvNodes
    */
   child: IvNode|null;
+
+  di: IvInjector | null;
+  component: DirectiveState<any>|null;
+  directives: DirectiveState<any>[] | null;
 }
 
 /**
@@ -44,10 +48,10 @@ export interface IvNode {
  */
 export interface IvGroup extends IvNode {
   readonly native:null;
+  component: null;
 }
 
 export interface IvElement extends IvNode {
-  injector: Injector | null;
   component: DirectiveState<any>|null;
   directives: DirectiveState<any>[] | null;
 
@@ -72,6 +76,8 @@ export interface IvText extends IvNode {
    * A native Element representing the Element
    */
   readonly native: RText;
+  component: null;
+  directives: null;
 }
 
 /**
@@ -79,13 +85,18 @@ export interface IvText extends IvNode {
  */
 export interface DirectiveState<T> {
   /**
+   * Directive Type
+   */
+  type: Type<T>,
+
+  /**
    * Instance of Directive
    */
   instance: T,
   /**
    * Current values of the directive inputs used for CD.
    */
-  inputs: any[],
+  inputs: any[]|null,
 
   /**
    * If the directive implements `ngOnChanges` than this contains the 
@@ -93,4 +104,11 @@ export interface DirectiveState<T> {
    * inputs.
    */
   changes: SimpleChanges|null
+}
+
+export interface IvInjector {
+  injector: Injector | null;
+  templateRef: TemplateRef<any> | null;
+  viewContainerRef: ViewContainerRef | null;
+  elementRef: ElementRef | null;
 }

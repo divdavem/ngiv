@@ -7,8 +7,9 @@
  */
 
 import { Injector, Type, SimpleChanges } from '@angular/core';
-import { IvText, IvElement, IvGroup, IvNode, Template, DirectiveState} from './interfaces';
+import { IvText, IvElement, IvGroup, IvNode, Template, DirectiveState, IvInjector} from './interfaces';
 import { Renderer3, RElement, RText, RNode } from './renderer';
+import { instantiateDirective } from './di';
 
 /**
  * This property gets set before entering a template.
@@ -70,7 +71,7 @@ function createNode(native: RText | RElement | null, isTextNode: boolean):
     parent: cursorIsParent ? cursor as IvGroup : cursor.parent,
     component: null,
     directives: null,
-    injector: null,
+    di: null,
     value: null as any,
     next: null,
     child: null
@@ -143,7 +144,7 @@ export function elementCreate(name: string,
   if (creationMode) {
     node = createNode(renderer.createElement(name), false);
     if (attrs) {
-      for (var key in attrs) {
+      for (let key in attrs) {
         if (attrs.hasOwnProperty(key)) {
           node!.native!.setAttribute(key, attrs[key]);
         }
@@ -282,7 +283,7 @@ export function componentCreate<T>(componentType: Type<T>, diDeps: any[]): T {
   let node = cursor as IvElement;
   let directiveState: DirectiveState<T>;
   if (creationMode) {
-    node.component = directiveState = instantiateDirective(componentType, diDeps);
+    node.component = directiveState = instantiateDirective(node, componentType, diDeps);
   } else {
     directiveState = node.component as DirectiveState<T>;
   }
@@ -319,7 +320,7 @@ export function directiveCreate<T>(directiveIndex: number, directiveType: Type<T
   let directiveState: DirectiveState<T>;
   let directives = node.directives || (node.directives = []);
   if (creationMode) {
-    directives[directiveIndex] = directiveState = instantiateDirective(directiveType, diDeps);
+    directives[directiveIndex] = directiveState = instantiateDirective(node, directiveType, diDeps, structuralTemplate);
   } else {
     directiveState = directives[directiveIndex] as DirectiveState<T>;
   }
@@ -351,14 +352,5 @@ export function groupEnd(): void {
     // an element requires poping a level higher.
     cursor = cursor.parent!;
   }
-}
-
-
-//////////////////////////
-//// Injection
-//////////////////////////
-
-function instantiateDirective<T>(type: Type<T>, diDeps: any[]): DirectiveState<T> {
-  return null!;
 }
 
