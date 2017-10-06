@@ -1,7 +1,7 @@
 import {MyApp, TodoComponent} from './example';
 import {ElementRef, Input, IterableDiffers, TemplateRef, ViewContainerRef, Injector, NgIterable} from '@angular/core';
 import {NgForOf, NgForOfContext} from '@angular/common';
-import {Template, IvGroup, C, E, p, G, I, D, i, g, T, e, t} from './iv';
+import {Template, IvView, C, E, p, X, I, D, i, x, T, e, t} from './iv';
 
 
 const TodoComponentDeps = [ElementRef];
@@ -17,10 +17,10 @@ function MyAppTemplate(ctx:MyApp, cm: boolean, temp: any) {
 function TodoTemplate(ctx:TodoComponent, cm: boolean, temp: any) {
   E('ul', cm && {'class': 'list'}); // <ul class="list">
     p(0, 'title', ctx.myTitle);
-    G();
+    X(); // <!-- ViewContainer -->
       let ngFor = D(0, NgForOf, NgForOfDeps, NgForTemplate) as NgForOf<any[]>;
       i(0, 0, temp = ctx.data, 'ngForOf') && (ngFor.ngForOf = temp as typeof ctx.data);
-    g();
+    x(); // <!-- /ViewContainer -->
   e(); // </ul>
 
   function NgForTemplate(ngForContext:NgForOfContext<any>, cm: boolean, temp: any) {

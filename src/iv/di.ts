@@ -6,8 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import { Injector, Type, TemplateRef, ViewContainerRef, ElementRef, EmbeddedViewRef, ViewRef, ComponentFactory } from '@angular/core';
-import { IvText, IvElement, IvGroup, IvNode, Template, DirectiveState, IvInjector } from './interfaces';
+import { Injector, Type, TemplateRef, ViewContainerRef, ElementRef, EmbeddedViewRef, ViewRef, ComponentFactory, NgModuleRef, ComponentRef } from '@angular/core';
+import { IvText, IvElement, IvView, IvNode, Template, DirectiveState, IvInjector } from './interfaces';
 
 const enum OptionFlags {
   Optional = 1 << 0,
@@ -87,7 +87,7 @@ function getElementRef(node: IvNode): ElementRef {
 
 function getViewContainerRef(node: IvNode): ViewContainerRef {
   let di = node.di || (node.di = createDI());
-  return di.viewContainerRef || (di.viewContainerRef = new IvViewContainerRef(node as IvGroup));
+  return di.viewContainerRef || (di.viewContainerRef = new IvViewContainerRef(node as IvView));
 }
 
 class IvTemplateRef<T> implements TemplateRef<T> {
@@ -107,7 +107,7 @@ class IvViewContainerRef implements ViewContainerRef {
   injector: Injector;
   parentInjector: Injector;
 
-  constructor(node: IvGroup) {
+  constructor(node: IvView) {
   }
 
   clear(): void {
@@ -117,10 +117,15 @@ class IvViewContainerRef implements ViewContainerRef {
     throw new Error("Method not implemented.");
   }
   length: number;
-  createEmbeddedView<C>(templateRef: TemplateRef<C>, context?: C | undefined, index?: number | undefined): EmbeddedViewRef<C> {
+  createEmbeddedView<C>(templateRef: TemplateRef<C>, context?: C | undefined, 
+                        index?: number | undefined): EmbeddedViewRef<C> 
+  {
     throw new Error("Method not implemented.");
   }
-  createComponent<C>(componentFactory: ComponentFactory<C>, index?: number | undefined, injector?: Injector | undefined, projectableNodes?: any[][] | undefined, ngModule?: NgModuleRef<any> | undefined): ComponentRef<C> {
+  createComponent<C>(componentFactory: ComponentFactory<C>, index?: number | undefined, 
+                     injector?: Injector | undefined, projectableNodes?: any[][] | undefined, 
+                     ngModule?: NgModuleRef<any> | undefined): ComponentRef<C> 
+  {
     throw new Error("Method not implemented.");
   }
   insert(viewRef: ViewRef, index?: number | undefined): ViewRef {

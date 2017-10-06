@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
- export {Template, IvGroup} from './interfaces';
+ export {Template, IvView} from './interfaces';
 
 // Naming scheme:
 // - Capital letters are for crating things: T(ext), E(lement), C(omponent), D(irective)
@@ -24,8 +24,8 @@ export {
   elementStyle as s,
   elementEnd as e,
 
-  groupCreate as G,
-  groupEnd as g,
+  viewContainerCreate as X,
+  viewContainerEnd as x,
 
   componentCreate as C,
   componentInput as I,

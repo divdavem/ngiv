@@ -7,9 +7,12 @@
  */
 
 import { Injector, Type, SimpleChanges } from '@angular/core';
-import { IvText, IvElement, IvGroup, IvNode, Template, DirectiveState, IvInjector} from './interfaces';
+import { IvText, IvElement, IvView, IvViewContainer, IvNode, IvHostElement, Template, DirectiveState, IvInjector } from './interfaces';
 import { Renderer3, RElement, RText, RNode } from './renderer';
 import { instantiateDirective } from './di';
+
+const VIEW_CONTAINER = 'ViewContainer';
+const VIEW = 'View';
 
 /**
  * This property gets set before entering a template.
@@ -53,7 +56,7 @@ let cursorIsParent: boolean = false;
 /**
  * Patch the Node so that it complies with our Renderer.
  */
-typeof Node !== 'undefined' && (Node.prototype.setProperty = function (this: Node, name:string, value: any): void {
+typeof Node !== 'undefined' && (Node.prototype.setProperty = function (this: Node, name: string, value: any): void {
   (this as any)[name] = value;
 });
 
@@ -62,13 +65,14 @@ typeof Node !== 'undefined' && (Node.prototype.setProperty = function (this: Nod
  * keep the execution code monomorphic and fast.
  */
 function createNode(native: RText, isTextNode: true): IvText
-function createNode(native: RElement|null, isTextNode: false): IvElement
-function createNode(native: RText | RElement | null, isTextNode: boolean):
-              IvElement & IvText
-{
-  const node: IvElement & IvText = {
+function createNode(native: RElement, isTextNode: false): IvElement
+function createNode(native: 'View', isTextNode: false): IvView
+function createNode(native: 'ViewContainer', isTextNode: false): IvViewContainer
+function createNode(native: RText | RElement | 'View' | 'ViewContainer',
+  isTextNode: boolean): IvElement & IvText & IvView & IvViewContainer {
+  const node: IvElement & IvText & IvView & IvViewContainer = {
     native: native as any,
-    parent: cursorIsParent ? cursor as IvGroup : cursor.parent,
+    parent: cursorIsParent ? cursor as IvView : cursor.parent as any,
     component: null,
     directives: null,
     di: null,
@@ -78,7 +82,7 @@ function createNode(native: RText | RElement | null, isTextNode: boolean):
   };
   if (cursorIsParent) {
     // New node is created as a child of the current one.
-    cursor && ((cursor as IvGroup).child = node);
+    cursor && ((cursor as IvView).child = node);
   } else {
     // New node is a next sibling of the current node.
     cursor.next = node;
@@ -97,14 +101,14 @@ export function isSame(a: any, b: any): boolean {
 
 export function stringify(value: any): string {
   if (typeof value == 'string') return value;
-  if (value === undefined || value === null)  return '';
+  if (value === undefined || value === null) return '';
   return '' + value;
 }
 
 //////////////////////////
 //// Render
 //////////////////////////
-export function render<T>(host: IvElement, tempRenderer: Renderer3, template: Template<T>, ctx: T) {
+export function render<T>(host: IvHostElement, tempRenderer: Renderer3, template: Template<T>, ctx: T) {
   cursor = host;
   cursorIsParent = true;
   renderer = tempRenderer;
@@ -117,10 +121,10 @@ export function render<T>(host: IvElement, tempRenderer: Renderer3, template: Te
   }
 }
 
-export function createHostNode(element: RElement): IvElement {
+export function createHostNode(element: RElement): IvHostElement {
   cursorIsParent = true;
   cursor = null!;
-  return createNode(element, false);
+  return createNode(element, false) as any;
 }
 
 
@@ -137,9 +141,9 @@ export function createHostNode(element: RElement): IvElement {
  * @param attrs Statically bound set of attributes to be written into the DOM element.
  * @param listeners A set of listener which should be registered for the DOM element.
  */
-export function elementCreate(name: string, 
-                              attrs?: { [key: string]: any } | false | 0, 
-                              listeners?: {[key: string]: any } | false) {
+export function elementCreate(name: string,
+  attrs?: { [key: string]: any } | false | 0,
+  listeners?: { [key: string]: any } | false) {
   let node: IvElement;
   if (creationMode) {
     node = createNode(renderer.createElement(name), false);
@@ -149,6 +153,10 @@ export function elementCreate(name: string,
           node!.native!.setAttribute(key, attrs[key]);
         }
       }
+    }
+    const parentNative = node.parent.native;
+    if (parentNative !== VIEW) {
+      parentNative.insertBefore(node.native, null);
     }
     // TODO: add code for setting up listeners.
   } else {
@@ -171,8 +179,8 @@ export function elementEnd(template?: Template<any>) {
     } else {
       // TODO: call onChanges if exist. 
     }
-    template(instance, creationMode);  
-  } 
+    template(instance, creationMode);
+  }
 
   if (cursorIsParent) {
     // If we are in the cursor, than just mark that we are 
@@ -182,24 +190,6 @@ export function elementEnd(template?: Template<any>) {
     // If we are already out of the cursor, than ending 
     // an element requires poping a level higher.
     cursor = cursor.parent!;
-  }
-
-  if (creationMode) {
-    // Because we don't have a component, we need to add the child elements
-    const selfNode = cursor as IvElement;
-    const selfNative = selfNode.native;
-    let child = selfNode.child;
-    // loop over all child nodes and add them to ourselves.
-    while(child) {
-      const childNative = child.native;
-      if (childNative) {
-        selfNative.insertBefore(child.native!, null);
-      } else {
-        // child is a group, which requires flattening before addition.
-        // TODO: add some code here.
-      }
-      child = child.next;
-    }
   }
 }
 
@@ -213,7 +203,7 @@ export function elementEnd(template?: Template<any>) {
  *        renaming as port of minification.
  * @param value Value to write. This value will go through stringification.
  */
-export function elementAttribute(propIndex:number, attrName: string, value: any): void {
+export function elementAttribute(propIndex: number, attrName: string, value: any): void {
 }
 
 /**
@@ -224,13 +214,13 @@ export function elementAttribute(propIndex:number, attrName: string, value: any)
  *        renaming as part of minification.
  * @param value New value to write.
  */
-export function elementProperty(propIndex:number, propName: string, value: any): void {
+export function elementProperty(propIndex: number, propName: string, value: any): void {
 }
 
-export function elementClass(propIndex:number, className: string, value: any): void {
+export function elementClass(propIndex: number, className: string, value: any): void {
 }
 
-export function elementStyle(propIndex:number, styleName: string, value: any, suffix?: string): void {
+export function elementStyle(propIndex: number, styleName: string, value: any, suffix?: string): void {
 }
 
 
@@ -251,7 +241,11 @@ export function elementStyle(propIndex:number, styleName: string, value: any, su
  */
 export function textCreate(value: any) {
   if (creationMode) {
-    createNode(renderer.createTextNode(stringify(value)), true);
+    const node = createNode(renderer.createTextNode(stringify(value)), true);
+    const parentNative = node.parent!.native;
+    if (parentNative !== VIEW) {
+      parentNative.insertBefore(node.native, null);
+    }
   }
 }
 
@@ -273,7 +267,7 @@ export function textCreateBound(value: any): void {
   }
 }
 
-  
+
 //////////////////////////
 //// Component
 //////////////////////////
@@ -338,10 +332,11 @@ export function directiveInput(directiveIndex: number, inputIndex: number, value
 //////////////////////////
 
 
-export function groupCreate(): void {
+export function viewContainerCreate(): void {
+  createNode(VIEW_CONTAINER, false);
 }
 
-export function groupEnd(): void {
+export function viewContainerEnd(): void {
   // Groups don't insert native elements since they don't yet have a parent.
   if (cursorIsParent) {
     // If we are in the cursor, than just mark that we are 
